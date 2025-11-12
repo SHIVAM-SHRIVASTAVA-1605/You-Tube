@@ -1,13 +1,14 @@
 import { z } from 'zod';
-import { baseProcedure, createTRPCRouter } from '../init';
+import { protectProcedure, createTRPCRouter } from '../init';
 export const appRouter = createTRPCRouter({
-    hello: baseProcedure
+    hello: protectProcedure
         .input(
             z.object({
                 text: z.string(),
             }),
         )
-        .query((opts) => {
+        .query(async (opts) => {
+            console.log({ dbUser: opts.ctx.user });
             return {
                 greeting: `hello ${opts.input.text}`,
             };
