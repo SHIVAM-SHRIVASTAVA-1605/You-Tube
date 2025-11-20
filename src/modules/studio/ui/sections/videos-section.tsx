@@ -63,13 +63,13 @@ const VideoSectionSuspense = () => {
                                     <TableCell>
                                         Date
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="text-right">
                                         Views
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="text-right">
                                         Comments
                                     </TableCell>
-                                    <TableCell>
+                                    <TableCell className="text-right pr-6">
                                         Likes
                                     </TableCell>
                                 </TableRow>
