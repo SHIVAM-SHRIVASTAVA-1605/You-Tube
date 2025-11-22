@@ -6,8 +6,11 @@ import { trpc } from "@/trpc/client"
 import { Loader2Icon, PlusIcon } from "lucide-react"
 import { toast } from "sonner"
 import { StudioUploader } from "./studio-uploader"
+import { routerServerGlobal } from "next/dist/server/lib/router-utils/router-server-context"
+import { useRouter } from "next/navigation"
 
 export const StudioUploadModal = () => {
+    const router = useRouter();
     const utils = trpc.useUtils();
     const create = trpc.videos.create.useMutation({
         onSuccess: () => {
@@ -19,6 +22,13 @@ export const StudioUploadModal = () => {
         }
     });
 
+    const onSuccess = () => {
+        if(!create.data?.video.id) return;
+
+        create.reset();
+        router.push(`/studio/videos/${create.data.video.id}`);
+    }
+
     return (
         <>
             <ResponsiveModal
@@ -27,7 +37,7 @@ export const StudioUploadModal = () => {
                 onOpenChange={() => create.reset()}
             >
                 {create.data?.url
-                    ? <StudioUploader endpoint={create.data.url} onSuccess={() => {}}/>
+                    ? <StudioUploader endpoint={create.data.url} onSuccess={onSuccess}/>
                     : <Loader2Icon />
                 }
             </ResponsiveModal>
