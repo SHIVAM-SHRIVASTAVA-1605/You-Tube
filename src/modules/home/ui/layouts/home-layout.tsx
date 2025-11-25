@@ -8,7 +8,7 @@ interface HomeLayoutProps {
 
 export const HomeLayout = ({ children }: HomeLayoutProps) => {
     return (
-        <SidebarProvider>
+        <SidebarProvider defaultOpen={true}>
             <div className="pw-full">
                 <HomeNavbar />
                 <div className="flex min-h-screen pt-[4rem]">

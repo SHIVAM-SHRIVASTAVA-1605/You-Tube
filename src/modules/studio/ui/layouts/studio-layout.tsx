@@ -8,7 +8,7 @@ interface StudioLayoutProps {
 
 export const StudioLayout = ({ children }: StudioLayoutProps) => {
     return (
-        <SidebarProvider>
+        <SidebarProvider defaultOpen={true}>
             <div className="w-full">
                 <StudioNavbar />
                 <div className="flex min-h-screen pt-[4rem]">
