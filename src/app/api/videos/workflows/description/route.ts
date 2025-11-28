@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { videos } from "@/db/schema";
-import { serve } from "@upstash/workflow/nextjs"
+import { serve } from "@upstash/workflow/nextjs";
 import { and, eq } from "drizzle-orm";
 
 interface InputType {
@@ -8,12 +8,13 @@ interface InputType {
     videoId: string;
 };
 
-const DESCRIPTION_SYSTEM_PROMPT = `Your task is to summarize the transcript of a video. Please follow these guidelines:
-- Be brief. Condense the content into a summary that captures the key points and main ideas without losing important details.
-- Avoid jargon or overly complex language unless necessary for the context.
-- Focus on the most critical information, ignoring filler, repetitive statements, or irrelevant tangents.
-- ONLY return the summary, no other text, annotations, or comments.
-- Aim for a summary that is 3-5 sentences long and no more than 200 characters.`;
+const DESCRIPTION_SYSTEM_PROMPT = `Your task is to generate an SEO-optimized YouTube video description based on its transcript. Please follow these guidelines:
+- Write a compelling 2-3 paragraph description (150-300 words)
+- Include relevant keywords naturally for better discoverability
+- Highlight the main topics and key takeaways from the video
+- Use an engaging tone that encourages viewers to watch
+- Add relevant hashtags at the end (3-5 hashtags)
+- ONLY return the description as plain text. Do not add extra formatting.`;
 
 export const { POST } = serve(
     async (context) => {
@@ -28,78 +29,61 @@ export const { POST } = serve(
                     eq(videos.id, videoId),
                     eq(videos.userId, userId),
                 ));
-            
-                if (!existingVideo) {
-                    throw new Error("Not Found");
-                }
 
-                return existingVideo;
+            if (!existingVideo) {
+                throw new Error("Video not found");
+            }
+
+            return existingVideo;
         });
 
         const transcript = await context.run("get-transcript", async () => {
             const trackUrl = `https://stream.mux.com/${video.muxPlaybackId}/text/${video.muxTrackId}.txt`;
             const response = await fetch(trackUrl);
-            const text = response.text();
+            const text = await response.text();
 
             if (!text) {
-                throw new Error("Bad Request");
+                throw new Error("Transcript not found");
             }
 
             return text;
         });
 
-        const geminiResponse = await context.run("generate-description", async () => {
+        // Use Pollinations.AI for FREE text generation (no API key needed)
+        const generatedDescription = await context.run("generate-description", async () => {
+            const prompt = `${DESCRIPTION_SYSTEM_PROMPT}\n\nVideo Title: ${video.title}\n\nTranscript:\n${transcript.slice(0, 3000)}`; // Limit transcript length
+            const encodedPrompt = encodeURIComponent(prompt);
+            
             const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
-                {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                        contents: [
-                            {
-                                role: "user",
-                                parts: [
-                                    {
-                                        text: transcript,
-                                    },
-                                ],
-                            },
-                        ],
-                        generationConfig: {
-                            temperature: 0.7,
-                            maxOutputTokens: 8192,
-                        },
-                    }),
-                }
+                `https://text.pollinations.ai/${encodedPrompt}?model=openai&seed=${Date.now()}`
             );
 
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+                throw new Error(`Pollinations API error: ${response.status}`);
             }
 
-            return await response.json();
+            const description = await response.text();
+            
+            if (!description || description.trim().length === 0) {
+                throw new Error("Failed to generate description");
+            }
+
+            return description.trim();
         });
 
-        const generatedDescription = geminiResponse?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-        if (!generatedDescription) {
-            throw new Error("Failed to extract description from Gemini response");
-        }
-
+        console.log("📝 Generated description:", generatedDescription);
 
         await context.run("update-video", async () => {
             await db
                 .update(videos)
                 .set({
-                    description: generatedDescription.trim() || video.description,
+                    description: generatedDescription,
+                    updatedAt: new Date(),
                 })
                 .where(and(
-                    eq(videos.id, video.id),
-                    eq(videos.userId, video.userId),
-                ))
+                    eq(videos.id, videoId),
+                    eq(videos.userId, userId),
+                ));
         });
     }
-)
+);
