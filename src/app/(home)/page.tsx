@@ -18,7 +18,7 @@ const Page = async ({ searchParams }: PageProps) => {
     <HydrateClient>
           <HomeView categoryId={categoryId}/>
           <div>
-            Youtube.
+            Youtube..
           </div>
     </HydrateClient>
   );
